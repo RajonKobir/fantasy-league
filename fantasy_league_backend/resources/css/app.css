@@ -1,0 +1,79 @@
+@import './admin-responsive.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme color and font family CSS custom properties */
+:root {
+  --theme-color: #3b82f6;
+  --theme-color-rgb: 59, 130, 246;
+  --font-family: system-ui;
+}
+
+/* Apply font family globally */
+html, body, * {
+  font-family: var(--font-family);
+}
+
+/* Dynamic theme color classes */
+@layer components {
+  .bg-theme {
+    @apply transition-colors;
+    background-color: var(--theme-color);
+  }
+
+  .text-theme {
+    color: var(--theme-color);
+  }
+
+  .border-theme {
+    border-color: var(--theme-color);
+  }
+
+  .ring-theme {
+    --tw-ring-color: var(--theme-color);
+  }
+
+  .hover\:bg-theme:hover {
+    background-color: var(--theme-color);
+    opacity: 0.9;
+  }
+
+  .focus\:ring-theme:focus {
+    --tw-ring-color: var(--theme-color);
+  }
+
+  /* Theme button styles */
+  .btn-primary {
+    @apply px-4 py-2 bg-theme text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed font-medium;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium;
+  }
+
+  .btn-success {
+    @apply px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium;
+  }
+
+  /* Small button variant for table/action buttons */
+  .btn-sm {
+    @apply px-2 py-1 text-xs rounded;
+  }
+}
+
+/* Badge utilities for status/labels */
+@layer components {
+  .badge {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .badge-sm {
+    @apply inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium;
+  }
+}

@@ -1,0 +1,113 @@
+/* Admin Panel Responsive Utilities */
+
+/* Base responsive spacing */
+@layer components {
+  .admin-container {
+    @apply w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6;
+  }
+
+  .admin-header {
+    @apply text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900;
+  }
+
+  .admin-subheader {
+    @apply text-sm sm:text-base text-gray-600 mt-1;
+  }
+
+  /* Responsive form sections */
+  .form-group-stack {
+    @apply flex flex-col space-y-3 sm:space-y-0 sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center;
+  }
+
+  .form-control-full {
+    @apply w-full flex-1;
+  }
+
+  /* Responsive table wrapper */
+  .table-responsive {
+    @apply hidden lg:block bg-white shadow rounded-lg overflow-x-auto;
+  }
+
+  .table-responsive-sm {
+    @apply lg:hidden space-y-3;
+  }
+
+  /* Responsive card for mobile */
+  .card-mobile {
+    @apply bg-white p-4 rounded-lg shadow border-l-4 border-blue-500;
+  }
+
+  /* Responsive badge */
+  .badge-responsive {
+    @apply inline-block px-2.5 py-1 text-xs font-medium rounded;
+  }
+
+  /* Responsive button group */
+  .button-group-responsive {
+    @apply flex gap-2 pt-3 border-t flex-wrap lg:flex-nowrap;
+  }
+
+  /* Responsive grid */
+  .grid-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4;
+  }
+
+  .grid-responsive-2 {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+  }
+
+  /* Responsive action buttons */
+  .action-buttons {
+    @apply flex gap-2 flex-col sm:flex-row;
+  }
+
+  .action-button {
+    @apply flex-1 sm:flex-none px-3 py-2 text-sm rounded transition-colors;
+  }
+
+  /* Mobile menu toggles */
+  .mobile-menu-toggle {
+    @apply lg:hidden;
+  }
+
+  .desktop-only {
+    @apply hidden lg:block;
+  }
+
+  .mobile-only {
+    @apply lg:hidden;
+  }
+
+  /* Responsive text sizes */
+  .heading-responsive {
+    @apply text-lg sm:text-xl md:text-2xl font-bold;
+  }
+
+  .text-responsive-sm {
+    @apply text-xs sm:text-sm;
+  }
+
+  .text-responsive {
+    @apply text-sm md:text-base;
+  }
+
+  /* Responsive padding */
+  .p-responsive {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+
+  /* Responsive gap */
+  .gap-responsive {
+    @apply gap-2 sm:gap-3 md:gap-4;
+  }
+
+  /* Overflow handling for mobile */
+  .overflow-x-auto-responsive {
+    @apply overflow-x-auto md:overflow-x-visible;
+  }
+
+  /* White space handling */
+  .whitespace-responsive {
+    @apply whitespace-normal md:whitespace-nowrap;
+  }
+}

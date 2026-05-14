@@ -1,0 +1,34 @@
+{
+  "project_info": {
+    "project_number": "86574678884",
+    "firebase_url": "https://smooth-rain-385309.firebaseio.com",
+    "project_id": "smooth-rain-385309",
+    "storage_bucket": "smooth-rain-385309.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:86574678884:android:abc123def456xyz",
+        "android_client_info": {
+          "package_name": "com.fantasyleague.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "86574678884-rf72havn0fj4ssq3j78p3i1cn9fsumji.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fantasyleague.app",
+            "certificate_hash": "YOUR_SHA1_FINGERPRINT_HERE"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "YOUR_API_KEY_HERE"
+        }
+      ]
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,1022 @@
+{
+  "info": {
+    "name": "Fantasy League API",
+    "description": "Comprehensive REST API collection for Fantasy League application. Updated with all current migrations, seeders, and endpoints. Seeders create 7 users (1 admin + 6 demo), 8 game teams with 15 players each, 3 tournaments, fantasy teams, notifications, payment requests, and winner tracking.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "3.0"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Collection-level pre-request: add Authorization header automatically when {{token}} is present",
+          "if (pm.environment.get('token')) {",
+          "    // Upsert header so individual requests can still override if needed",
+          "    pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('token') });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "User authentication endpoints",
+      "item": [
+        {
+          "name": "Login",
+          "description": "Login with credentials. Seeders create: admin@admin.com (password), user@user.com (123456), and 5 random demo users.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('token', jsonData.token);",
+                  "    pm.environment.set('user_id', jsonData.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            }
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New User\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password\",\n  \"password_confirmation\": \"password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/register",
+              "host": ["{{base_url}}"],
+              "path": ["register"]
+            }
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/verify-email",
+              "host": ["{{base_url}}"],
+              "path": ["verify-email"]
+            }
+          }
+        },
+        {
+          "name": "Resend Verification Email",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/resend-verification-email",
+              "host": ["{{base_url}}"],
+              "path": ["resend-verification-email"]
+            }
+          }
+        },
+        {
+          "name": "Social Login",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google\",\n  \"token\": \"google_id_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/social-login",
+              "host": ["{{base_url}}"],
+              "path": ["social-login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/user",
+              "host": ["{{base_url}}"],
+              "path": ["user"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/logout",
+              "host": ["{{base_url}}"],
+              "path": ["logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Configuration",
+      "description": "Application configuration endpoints",
+      "item": [
+        {
+          "name": "Get Config (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/config",
+              "host": ["{{base_url}}"],
+              "path": ["config"]
+            }
+          }
+        },
+        {
+          "name": "Update Config (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"api_key\",\n  \"value\": \"new_value\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/config",
+              "host": ["{{base_url}}"],
+              "path": ["config"]
+            }
+          }
+        },
+        {
+          "name": "Delete Config (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/config/api_key",
+              "host": ["{{base_url}}"],
+              "path": ["config", "api_key"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tournaments",
+      "description": "Tournament management endpoints",
+      "item": [
+        {
+          "name": "List All Tournaments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tournaments",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments"]
+            }
+          }
+        },
+        {
+          "name": "Get Tournament Details",
+          "description": "Get full tournament details including required_players (the exact number of players needed for fantasy teams in this tournament - e.g., 6, 9, or 11)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tournaments/1",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Tournament Fantasy Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tournaments/1/teams",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "1", "teams"]
+            }
+          }
+        },
+        {
+          "name": "Get Tournament Leaderboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tournaments/1/leaderboard",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "1", "leaderboard"]
+            }
+          }
+        },
+        {
+          "name": "Create Tournament (Admin Only)",
+          "description": "Create a new tournament. Seeders create 3 tournaments: T20 Premier League (11 players, entry_fee 100), Game Masters Cup (11 players, entry_fee 150), Domestic League (9 players, entry_fee 50)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"World Cup 2026\",\n  \"logo_url\": \"https://example.com/logo.png\",\n  \"description\": \"International game tournament\",\n  \"start_at\": \"2026-03-01 10:00:00\",\n  \"end_at\": \"2026-03-31 18:00:00\",\n  \"entry_fee\": 100,\n  \"required_players\": 11,\n  \"captain_multiplier\": 2.0,\n  \"vice_captain_multiplier\": 1.5,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tournaments",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments"]
+            }
+          }
+        },
+        {
+          "name": "Update Tournament (Admin Only)",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Tournament Name\",\n  \"status\": \"running\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tournaments/1",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Tournament (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/tournaments/1",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Game Teams",
+      "description": "Game teams (India, Pakistan, England, etc.) - Admin-managed teams with player rosters. Player assignments are stored in the player_selections table (team has many players through hasMany('Player') via game_team_id FK)",
+      "item": [
+        {
+          "name": "List All Game Teams",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/game-teams",
+              "host": ["{{base_url}}"],
+              "path": ["game-teams"]
+            }
+          }
+        },
+        {
+          "name": "Get Game Team Details with Players",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/game-teams/1",
+              "host": ["{{base_url}}"],
+              "path": ["game-teams", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Game Matches",
+      "description": "Game Match fixtures and match details",
+      "item": [
+        {
+          "name": "List All Game Matches",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/game-matches",
+              "host": ["{{base_url}}"],
+              "path": ["game-matches"]
+            }
+          }
+        },
+        {
+          "name": "Get Match Details",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/game-matches/1",
+              "host": ["{{base_url}}"],
+              "path": ["game-matches", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Match Players",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/game-matches/1/players",
+              "host": ["{{base_url}}"],
+              "path": ["game-matches", "1", "players"]
+            }
+          }
+        },
+        {
+          "name": "Get Match Squads",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/game-matches/1/squads",
+              "host": ["{{base_url}}"],
+              "path": ["game-matches", "1", "squads"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Players",
+      "description": "Game player management endpoints. Seeders create 8 game teams (India, Pakistan, England, Australia, West Indies, Sri Lanka, Bangladesh, South Africa) with 15 players each. Roles: batsman, bowler, all-rounder, wicket-keeper.",
+      "item": [
+        {
+          "name": "List All Players",
+          "description": "Get all players. Seeders create 120 total players (8 teams × 15 players each). Each player has: id, name, role, image_url, game_team_id, is_playing.",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/players",
+              "host": ["{{base_url}}"],
+              "path": ["players"]
+            }
+          }
+        },
+        {
+          "name": "Create Player (Admin Only)",
+          "description": "Create a new player with image upload. Seeders include players like Virat Kohli (batsman, India), Jasprit Bumrah (bowler, India), etc.",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Virat Kohli\",\n  \"role\": \"batsman\",\n  \"image_url\": \"https://example.com/player.jpg\",\n  \"game_team_id\": 1,\n  \"is_playing\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/players",
+              "host": ["{{base_url}}"],
+              "path": ["players"]
+            }
+          }
+        },
+        {
+          "name": "Update Player (Admin Only)",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Virat Kohli Updated\",\n  \"role\": \"batsman\",\n  \"is_playing\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/players/1",
+              "host": ["{{base_url}}"],
+              "path": ["players", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Player (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/players/1",
+              "host": ["{{base_url}}"],
+              "path": ["players", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fantasy Teams",
+      "description": "User-created fantasy teams for tournament participation with full CRUD operations",
+      "item": [
+        {
+          "name": "List My Fantasy Teams",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/fantasy-teams?tournament_id=1&per_page=10",
+              "host": ["{{base_url}}"],
+              "path": ["fantasy-teams"],
+              "query": [
+                {"key": "tournament_id", "value": "1"},
+                {"key": "per_page", "value": "10"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Fantasy Team Details",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/fantasy-teams/1",
+              "host": ["{{base_url}}"],
+              "path": ["fantasy-teams", "1"]
+            }
+          }
+        },
+        {
+          "name": "Create Fantasy Team",
+          "description": "Create a new fantasy team. IMPORTANT: player_ids count MUST equal tournament's required_players (e.g., 11 or 9 depending on the tournament). All IDs are integers. The response returns the created fantasy team in `data` on success.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json && json.success) {",
+                  "        var id = (json.data && json.data.id) ? json.data.id : (json.id || null);",
+                  "        if (id) pm.environment.set('fantasy_team_id', id);",
+                  "    }",
+                  "}",
+                  "pm.test('Create Fantasy Team succeeded', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "    pm.expect(pm.response.json().success).to.be.ok;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tournament_id\": 1,\n  \"name\": \"My Dream Team\",\n  \"player_ids\": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],\n  \"captain_id\": 1,\n  \"vice_captain_id\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/fantasy-teams",
+              "host": ["{{base_url}}"],
+              "path": ["fantasy-teams"]
+            }
+          }
+        },
+        {
+          "name": "Create Fantasy Team (Team flow - legacy '/teams')",
+          "description": "Legacy team creation endpoint for creating a Team and player selections. Use when creating a team (not a tournament fantasy team). Sends to /teams and returns the created team object.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json && json.success) {",
+                  "        var id = (json.data && json.data.id) ? json.data.id : (json.id || null);",
+                  "        if (id) pm.environment.set('created_team_id', id);",
+                  "    }",
+                  "}",
+                  "pm.test('Legacy Create Team succeeded', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "    pm.expect(pm.response.json().success).to.be.ok;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": 1,\n  \"name\": \"My Team from App\",\n  \"player_ids\": [1,2,3,4,5,6,7,8,9,10,11],\n  \"captain_id\": 1,\n  \"vice_captain_id\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teams",
+              "host": ["{{base_url}}"],
+              "path": ["teams"]
+            }
+          }
+        },
+        {
+          "name": "Update Fantasy Team",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Team Name\",\n  \"captain_id\": 2,\n  \"vice_captain_id\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/fantasy-teams/1",
+              "host": ["{{base_url}}"],
+              "path": ["fantasy-teams", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Fantasy Team",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/fantasy-teams/1",
+              "host": ["{{base_url}}"],
+              "path": ["fantasy-teams", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallet & Transactions",
+      "description": "User wallet balance and transaction management. Wallet balance is decremented when user creates a fantasy team (entry_fee). Transactions track credits, debits, and approvals. TransactionSeeder creates sample transactions; MatchPlayerPointsSeeder creates realistic points (5-120 per player).",
+      "item": [
+        {
+          "name": "Get Wallet Balance",
+          "description": "Get current user's wallet balance. Returns balance and transaction history.",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/wallet",
+              "host": ["{{base_url}}"],
+              "path": ["wallet"]
+            }
+          }
+        },
+        {
+          "name": "Get My Transactions",
+          "description": "Get transaction history for current user. Includes: CREDIT (deposits), DEBIT (entry fees, withdrawals), APPROVAL (payment approvals).",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/transactions",
+              "host": ["{{base_url}}"],
+              "path": ["transactions"]
+            }
+          }
+        },
+        {
+          "name": "Credit User Wallet (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500,\n  \"description\": \"Bonus credit\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/2/wallet/credit",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "2", "wallet", "credit"]
+            }
+          }
+        },
+        {
+          "name": "Adjust User Wallet (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 250,\n  \"type\": \"debit\",\n  \"description\": \"Manual adjustment\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/2/wallet/adjust",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "2", "wallet", "adjust"]
+            }
+          }
+        },
+        {
+          "name": "Get User Wallet Logs (Admin Only)",
+          "description": "Get wallet audit logs for a specific user. Shows all credits, debits, and approvals.",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/users/2/wallet/logs",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "2", "wallet", "logs"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Requests",
+      "description": "User payment withdrawal requests and admin approval workflow. PaymentRequestSeeder creates sample requests with various statuses. When approved, wallet is credited and transaction is recorded.",
+      "item": [
+        {
+          "name": "List My Payment Requests",
+          "description": "Get all payment requests for current user. Shows pending, approved, and rejected requests.",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/payment-requests",
+              "host": ["{{base_url}}"],
+              "path": ["payment-requests"]
+            }
+          }
+        },
+        {
+          "name": "Get Payment Request Details",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/payment-requests/1",
+              "host": ["{{base_url}}"],
+              "path": ["payment-requests", "1"]
+            }
+          }
+        },
+        {
+          "name": "Submit Payment Request",
+          "description": "Submit a new payment withdrawal request. Amount is deducted from wallet when approved. PaymentRequestSeeder creates sample methods: bank_transfer, credit_card, wallet.",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000,\n  \"payment_method\": \"bank_transfer\",\n  \"account_number\": \"1234567890\",\n  \"bank_name\": \"Sample Bank\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payment-requests",
+              "host": ["{{base_url}}"],
+              "path": ["payment-requests"]
+            }
+          }
+        },
+        {
+          "name": "List All Payment Requests (Admin Only)",
+          "description": "Get all payment requests across all users. Seeders create requests with various statuses: pending, approved, rejected.",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/payment-requests",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "payment-requests"]
+            }
+          }
+        },
+        {
+          "name": "Approve Payment Request (Admin Only)",
+          "description": "Approve a payment request. This atomically: updates status, credits wallet, and creates transaction record.",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/payment-requests/1/approve",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "payment-requests", "1", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Reject Payment Request (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Invalid bank account details provided\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/payment-requests/1/reject",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "payment-requests", "1", "reject"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "User notifications with real-time polling (30-second intervals by default)",
+      "item": [
+        {
+          "name": "Get My Notifications",
+          "description": "Get all notifications for authenticated user. Returns paginated list with read_at field for tracking read/unread status.",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Winners & Leaderboard",
+      "description": "Tournament winners and leaderboard endpoints. Winners are visible when tournament ends. Status values: active (✅ Visible), inactive (⏸️ Hidden), cancel (❌ Cancelled), hold (⏳ On Hold), archived (📦 Archived)",
+      "item": [
+        {
+          "name": "Get Tournament Winners",
+          "description": "Get winners for a specific tournament (public endpoint, no auth required). Shows winning fantasy teams with their total points.",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tournaments/1/winners",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "1", "winners"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Users Management",
+      "description": "Admin-only user management operations. Seeders create: 1 admin user (admin@admin.com / password) and 6 demo users.",
+      "item": [
+        {
+          "name": "List All Users (Admin Only)",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users"]
+            }
+          }
+        },
+        {
+          "name": "Update User (Admin Only)",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated User Name\",\n  \"email\": \"updated@example.com\",\n  \"is_admin\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/users/2",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "2"]
+            }
+          }
+        },
+        {
+          "name": "Delete User (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/users/2",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "2"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Winners Management",
+      "description": "Admin-only winner management. Winners are created after tournament ends. Status values: active (visible in app), inactive (hidden), cancel (cancelled), hold (on hold), archived (archived).",
+      "item": [
+        {
+          "name": "List All Winners (Admin Only)",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/winners",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "winners"]
+            }
+          }
+        },
+        {
+          "name": "Get Winner Details (Admin Only)",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/winners/1",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "winners", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Winner Status (Admin Only)",
+          "description": "Update winner status. Available statuses: active, inactive, cancel, hold, archived. Can also update tournament_summary JSON.",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\",\n  \"tournament_summary\": {\n    \"total_participants\": 50,\n    \"winning_points\": 1200\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/winners/1",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "winners", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Game Matches",
+      "description": "Admin endpoints for Game Match management. Matches are tied to tournaments and include team and player information.",
+      "item": [
+        {
+          "name": "List All Game Matches (Admin Only)",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/game-matches",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "game-matches"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Points Management",
+      "description": "Admin-only points system management. Points are calculated from player performance (runs, wickets, etc.). MatchPlayerPointsSeeder creates realistic points (5-120 per player). Fantasy team total_points is sum of all player points × captain/vice-captain multipliers.",
+      "item": [
+        {
+          "name": "List Points Rules (Admin Only)",
+          "description": "Get all points scoring rules. Example rules: Runs Scored (1 point per run), Wicket Taken (25 points), Maiden Over (4 points), etc.",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/points",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "points"]
+            }
+          }
+        },
+        {
+          "name": "Create Points Rule (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Runs Scored\",\n  \"points_value\": 1,\n  \"description\": \"1 point per run scored\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/points",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "points"]
+            }
+          }
+        },
+        {
+          "name": "Update Points Rule (Admin Only)",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}, {"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"points_value\": 1.5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/points/1",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "points", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Points Rule (Admin Only)",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/points/1",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "points", "1"]
+            }
+          }
+        },
+        {
+          "name": "Trigger Fantasy Team Points Update (Admin Only)",
+          "description": "Manually trigger the cron job to calculate and update all fantasy team total_points. This aggregates player points and applies captain/vice-captain multipliers.",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/admin/cron/update-fantasy-team-points",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "cron", "update-fantasy-team-points"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fantasy Team Points",
+      "description": "Fantasy team points tracking and leaderboard",
+      "item": [
+        {
+          "name": "Get My Fantasy Team Points",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{token}}"}],
+            "url": {
+              "raw": "{{base_url}}/me/fantasy-team/points?tournament_id=1",
+              "host": ["{{base_url}}"],
+              "path": ["me", "fantasy-team", "points"],
+              "query": [{"key": "tournament_id", "value": "1"}]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_email",
+      "value": "admin@admin.com",
+      "type": "string"
+    },
+    {
+      "key": "admin_password",
+      "value": "12345678",
+      "type": "string"
+    }
+  ]
+}

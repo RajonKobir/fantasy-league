@@ -1,0 +1,49 @@
+buildscript {
+    ext.kotlin_version = '2.2.0' // Using Kotlin 2.2.0 to match dependency metadata; ensure AGP/R8 support
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.11.0' // Aligned with settings.gradle.kts
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath 'com.google.gms:google-services:4.4.1' // bumped to satisfy Crashlytics Gradle plugin v3 requirement
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.4'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = '../build'
+
+subprojects {
+    // Set custom build directory per module
+    project.buildDir = new File(rootProject.buildDir, project.name)
+
+    // Link project evaluation order
+    project.evaluationDependsOn(':app')
+
+    // ✅ Use consistent Kotlin and Java compatibility with your app-level build.gradle
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+// Clean task
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}

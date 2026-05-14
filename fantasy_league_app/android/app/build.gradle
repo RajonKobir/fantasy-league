@@ -1,0 +1,108 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+    id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
+    id "com.google.firebase.crashlytics"
+}
+
+// Load keystore properties from android/key.properties if present (do NOT commit real secrets)
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+// Load local.properties for Flutter-provided properties (versionCode, versionName, minSdkVersion)
+def localPropertiesFile = rootProject.file('local.properties')
+def localProperties = new Properties()
+if (localPropertiesFile.exists()) {
+    localProperties.load(new FileInputStream(localPropertiesFile))
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: "1"
+def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: "1.0.0"
+def flutterMinSdkVersion = localProperties.getProperty('flutter.minSdkVersion') ?: '24'
+
+android {
+    namespace = "com.fantasyleague.app"
+    compileSdk = 36
+
+    signingConfigs {
+        release {
+            // Only configure release signing if key properties are provided
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId = "com.fantasyleague.app"
+        minSdkVersion Integer.parseInt(flutterMinSdkVersion)
+        targetSdkVersion 35
+        // Use Flutter's version values (set in pubspec.yaml)
+        versionCode Integer.parseInt(flutterVersionCode)
+        versionName flutterVersionName
+        multiDexEnabled true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildTypes {
+        debug {
+            // Disable Crashlytics for debug builds to avoid upload errors
+            ext.alwaysUpdateBuildId = false
+        }
+        
+        release {
+            // Use release signing if provided via `android/key.properties`, otherwise fallback to debug (local dev)
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
+
+            // Enable code shrinking & obfuscation for production
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            // Ensure release builds are not debuggable
+            debuggable false
+            
+            // Disable Crashlytics upload for local development
+            ext.alwaysUpdateBuildId = false
+        }
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.2.0"
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"
+    implementation "androidx.multidex:multidex:2.0.1" // Optional but safe with minSdk < 24
+}
+
+// Skip Crashlytics upload task to avoid 400 errors in development
+gradle.taskGraph.whenReady { taskGraph ->
+    taskGraph.allTasks.forEach { task ->
+        if (task.name == 'uploadCrashlyticsMappingFileRelease') {
+            task.enabled = false
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}

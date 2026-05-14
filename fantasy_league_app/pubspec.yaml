@@ -1,0 +1,77 @@
+name: fantasyleague
+description: A new Flutter project.
+
+# The following line prevents the package from being accidentally published to
+# pub.dev using `pub publish`. This is preferred for private packages.
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.1+1
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.5
+  modal_progress_hud_nsn: ^0.5.1
+  bloc: ^9.0.0
+  flutter_bloc: ^9.1.1
+  shared_preferences: ^2.2.0
+  font_awesome_flutter: ^10.5.0
+  country_code_picker: ^3.0.0
+  image_cropper: ^9.1.0
+  image_picker: ^0.8.7+4
+  cached_network_image: ^3.2.3
+  url_launcher: ^6.1.12
+  intl: ^0.20.2
+  page_indicator: ^0.4.1
+  fluttertoast: ^8.2.2
+  bottom_navy_bar: ^6.0.0
+  persistent_bottom_nav_bar: ^6.2.1
+  sticky_headers: ^0.3.0+2
+  percent_indicator: ^4.2.3
+  flutter_circle_color_picker: ^0.3.0
+  dio: ^5.0.9
+  flutter_secure_storage: ^9.2.2
+  google_sign_in: ^6.1.1
+  flutter_facebook_auth: ^7.1.5
+  flutter_dotenv: ^5.1.0
+  share_plus: ^12.0.1
+  another_flushbar: ^1.12.29
+  modal_bottom_sheet: ^2.1.2
+
+dev_dependencies:
+  flutter_lints: ^3.0.0
+  flutter_test:
+    sdk: flutter
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter.
+flutter:
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+  assets:
+    - assets/cricketImage1.png
+    - assets/cricketImage2.png
+    - assets/cricketImage3.png
+    - assets/playerImage.png
+    - assets/tv.png
+    - assets/lineups.png
+    - assets/stump.png
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: fonts/Poppins-Bold.ttf
+        - asset: fonts/Poppins-Regular.ttf
+        - asset: fonts/Poppins-RegularItalic.ttf
+        - asset: fonts/Poppins-Light.ttf
+        - asset: fonts/Poppins-LightItalic.ttf
+        - asset: fonts/Poppins-Thin.ttf
+        - asset: fonts/Poppins-ThinItalic.ttf

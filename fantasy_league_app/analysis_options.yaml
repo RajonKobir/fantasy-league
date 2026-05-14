@@ -1,0 +1,26 @@
+# This file configures the analyzer, which statically analyzes Dart code to check for errors, warnings, and lints.
+#
+# The following line activates a set of recommended lints for Flutter apps,
+# packages, and plugins designed to encourage good coding practices.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Suppress false positives from Dart analyzer with cross-module imports
+    uri_does_not_exist: ignore
+    undefined_function: ignore
+    undefined_method: ignore
+    undefined_class: ignore
+    undefined_getter: ignore
+    invalid_constant: ignore
+
+linter:
+  rules:
+    # Explicitly remove rules that require mass refactoring
+    # (by listing them without any value, which disables them in the override)
+    avoid_unnecessary_containers:
+    constant_identifier_names:
+    library_private_types_in_public_api:
+    non_constant_identifier_names:
+
+

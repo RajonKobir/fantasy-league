@@ -1,0 +1,654 @@
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
+import 'package:fantasyleague/constance/constance.dart';
+import 'package:fantasyleague/constance/themes.dart';
+import 'package:flutter/foundation.dart';
+import 'package:fantasyleague/api/api_provider.dart';
+import 'package:fantasyleague/models/user_data.dart';
+import 'package:fantasyleague/utils/avatar_image.dart';
+import 'package:fantasyleague/validator/validator.dart';
+import 'package:fantasyleague/utils/dialogs.dart';
+import 'package:fantasyleague/modules/login/email_verification_screen.dart';
+import 'package:fantasyleague/constance/shared_preferences.dart';
+import 'package:fantasyleague/constance/user_summary_notifier.dart';
+
+class UpdateProfileScreen extends StatefulWidget {
+  final UserData? loginUserData;
+
+  const UpdateProfileScreen({super.key, this.loginUserData});
+  @override
+  _UpdateProfileScreenState createState() => _UpdateProfileScreenState();
+}
+
+class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
+  UserData loginUserData = UserData();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool isProcessing = false;
+  var imageUrl = '';
+  var nameController = TextEditingController();
+  var emailController = TextEditingController();
+  final nameFocusNode = FocusNode();
+  final emailFocusNode = FocusNode();
+  File? _image;
+  final _formKey = GlobalKey<FormState>();
+
+  // Track original values to disable button until changes
+  String _originalName = '';
+  String _originalEmail = '';
+  bool _hasChanges = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.loginUserData != null) {
+      loginUserData = widget.loginUserData!;
+      nameController.text = loginUserData.name ?? '';
+      emailController.text = loginUserData.email ?? '';
+      imageUrl = loginUserData.image ?? '';
+
+      // Store original values
+      _originalName = loginUserData.name ?? '';
+      _originalEmail = loginUserData.email ?? '';
+    }
+
+    // Add listeners to detect changes
+    nameController.addListener(_checkForChanges);
+    emailController.addListener(_checkForChanges);
+  }
+
+  void _checkForChanges() {
+    final nameChanged = nameController.text != _originalName;
+    final emailChanged = emailController.text != _originalEmail;
+    final imageChanged = _image != null;
+
+    final changed = nameChanged || emailChanged || imageChanged;
+
+    if (changed != _hasChanges) {
+      if (kDebugMode) {
+        debugPrint(
+            '[UpdateProfile] Changes detected: name=$nameChanged, email=$emailChanged, image=$imageChanged');
+      }
+      setState(() {
+        _hasChanges = changed;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.removeListener(_checkForChanges);
+    emailController.removeListener(_checkForChanges);
+    nameController.dispose();
+    emailController.dispose();
+    nameFocusNode.dispose();
+    emailFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ModalProgressHUD(
+      inAsyncCall: isProcessing,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AllCoustomTheme.getThemeData().primaryColor,
+              AllCoustomTheme.getThemeData().primaryColor,
+              Colors.white,
+              Colors.white,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Scaffold(
+            key: _scaffoldKey,
+            backgroundColor: AllCoustomTheme.getThemeData().colorScheme.surface,
+            body: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  height: AppBar().preferredSize.height,
+                  child: Row(
+                    children: [
+                      InkWell(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          height: AppBar().preferredSize.height,
+                          width: AppBar().preferredSize.height,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.arrow_back,
+                            color: AllCoustomTheme.getThemeData().primaryColor,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            'Update Profile',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w500,
+                              color: AllCoustomTheme.getThemeData()
+                                  .colorScheme
+                                  .surface,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: AppBar().preferredSize.height,
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(top: 16, bottom: 60),
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: <Widget>[
+                        Stack(
+                          children: <Widget>[
+                            Container(
+                              height: 96,
+                              width: 96,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                      color: Colors.black45,
+                                      offset: Offset(1.1, 1.1),
+                                      blurRadius: 3.0),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(48.0),
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white,
+                                  ),
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 48,
+                                      backgroundColor: Colors.transparent,
+                                      child: _image == null
+                                          ? loginUserData.image == '' ||
+                                                  loginUserData.image == '' ||
+                                                  loginUserData.image == null
+                                              ? Container(
+                                                  padding:
+                                                      const EdgeInsets.all(0.0),
+                                                  child: Image.asset(
+                                                    ConstanceData.playerImage,
+                                                    fit: BoxFit.cover,
+                                                  ),
+                                                )
+                                              : AvatarImage(
+                                                  sizeValue: 100,
+                                                  radius: 100,
+                                                  isCircle: true,
+                                                  imageUrl:
+                                                      loginUserData.image ?? '',
+                                                )
+                                          : Image.file(
+                                              _image!,
+                                              fit: BoxFit.cover,
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 70.0,
+                              top: 70.0,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.transparent,
+                                  boxShadow: <BoxShadow>[
+                                    BoxShadow(
+                                        color: Colors.black54,
+                                        offset: Offset(1.1, 1.1),
+                                        blurRadius: 2.0),
+                                  ],
+                                ),
+                                height: 24,
+                                width: 24,
+                                child: GestureDetector(
+                                  child: CircleAvatar(
+                                    backgroundColor:
+                                        AllCoustomTheme.getThemeData()
+                                            .colorScheme
+                                            .surface,
+                                    child: Icon(
+                                      Icons.edit,
+                                      size: 18,
+                                      color: AllCoustomTheme.getThemeData()
+                                          .primaryColor,
+                                    ),
+                                  ),
+                                  onTap: () async {
+                                    final picker = ImagePicker();
+                                    final picked = await picker.pickImage(
+                                        source: ImageSource.gallery,
+                                        maxWidth: 1024,
+                                        imageQuality: 80);
+                                    if (picked != null) {
+                                      setState(() {
+                                        _image = File(picked.path);
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Form(
+                          key: _formKey,
+                          child: Column(
+                            children: <Widget>[
+                              Container(
+                                padding: const EdgeInsets.only(right: 16),
+                                child: Column(
+                                  children: <Widget>[
+                                    Container(
+                                      padding: const EdgeInsets.only(top: 16),
+                                      child: TextFormField(
+                                        controller: nameController,
+                                        style: TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontSize: ConstanceData.SIZE_TITLE16,
+                                          color: AllCoustomTheme
+                                              .getBlackAndWhiteThemeColors(),
+                                        ),
+                                        autofocus: false,
+                                        focusNode: nameFocusNode,
+                                        keyboardType: TextInputType.text,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Name',
+                                          icon: Padding(
+                                            padding: EdgeInsets.only(top: 16),
+                                          ),
+                                        ),
+                                        onEditingComplete: () {
+                                          FocusScope.of(context)
+                                              .requestFocus(emailFocusNode);
+                                        },
+                                        validator: _validateName,
+                                        onSaved: (value) {
+                                          loginUserData.name = value;
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: 8,
+                                    ),
+                                    TextFormField(
+                                      controller: emailController,
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: ConstanceData.SIZE_TITLE16,
+                                        color: AllCoustomTheme
+                                            .getBlackAndWhiteThemeColors(),
+                                      ),
+                                      autofocus: false,
+                                      focusNode: emailFocusNode,
+                                      keyboardType: TextInputType.emailAddress,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Email',
+                                        helperText:
+                                            'Changing email will require verification',
+                                        icon: Padding(
+                                          padding: EdgeInsets.only(top: 14),
+                                        ),
+                                      ),
+                                      validator: _validateEmail,
+                                      onSaved: (value) {
+                                        loginUserData.email = value;
+                                      },
+                                    ),
+                                    const SizedBox(
+                                      height: 32,
+                                    ),
+                                    Container(
+                                      height: 40,
+                                      padding: const EdgeInsets.only(
+                                          left: 50, right: 50, bottom: 0),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: _hasChanges
+                                              ? AllCoustomTheme.getThemeData()
+                                                  .primaryColor
+                                              : Colors.grey.withAlpha(150),
+                                          borderRadius:
+                                              BorderRadius.circular(4.0),
+                                          boxShadow: <BoxShadow>[
+                                            BoxShadow(
+                                                color:
+                                                    Colors.black.withAlpha(128),
+                                                offset: const Offset(0, 1),
+                                                blurRadius: 5.0),
+                                          ],
+                                        ),
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            borderRadius:
+                                                BorderRadius.circular(4.0),
+                                            onTap: _hasChanges
+                                                ? () {
+                                                    FocusScope.of(context)
+                                                        .requestFocus(
+                                                            FocusNode());
+                                                    _submit();
+                                                  }
+                                                : null,
+                                            child: const Center(
+                                              child: Text(
+                                                'Update Profile',
+                                                style: TextStyle(
+                                                  fontFamily: 'Poppins',
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                  fontSize: ConstanceData
+                                                      .SIZE_TITLE12,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: 24,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String? _validateName(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Name can not be empty';
+    } else {
+      return null;
+    }
+  }
+
+  String? _validateEmail(String? value) {
+    if (value!.isEmpty) {
+      return 'Email can not be empty';
+    } else {
+      if (!Validators().emailValidator(value)) {
+        return 'Email is not valid';
+      } else {
+        return null;
+      }
+    }
+  }
+
+  void _submit() async {
+    FocusScope.of(context).requestFocus(FocusNode());
+
+    if (_formKey.currentState!.validate() == false) return;
+
+    _formKey.currentState!.save();
+    final name = nameController.text.trim();
+    final email = emailController.text.trim();
+
+    if (kDebugMode) {
+      debugPrint('[UpdateProfile] _submit() called');
+      debugPrint(
+          '[UpdateProfile] Sending: name=$name, email=$email, hasImage=${_image != null}');
+    }
+
+    setState(() {
+      isProcessing = true;
+    });
+
+    try {
+      // Check if token exists BEFORE making API call
+      if (kDebugMode) {
+        final storage = const FlutterSecureStorage();
+        final token = await storage.read(key: 'token');
+        if (token != null && token.isNotEmpty) {
+          debugPrint(
+              '[UpdateProfile] ✓ Token found in secure storage (${token.length} chars)');
+          debugPrint(
+              '[UpdateProfile] Token preview: ${token.substring(0, 20)}...');
+        } else {
+          debugPrint(
+              '[UpdateProfile] ✗ ERROR: No token found in secure storage!');
+        }
+      }
+
+      final emailChanged =
+          loginUserData.email != null && loginUserData.email != email;
+
+      if (kDebugMode) {
+        debugPrint(
+            '[UpdateProfile] emailChanged=$emailChanged, oldEmail=${loginUserData.email}, newEmail=$email');
+      }
+
+      if (kDebugMode)
+        debugPrint('[UpdateProfile] Calling ApiProvider().updateProfile()...');
+
+      final resp = await ApiProvider().updateProfile(
+        name: name,
+        email: email,
+        avatarFile: _image,
+        onSendProgress: (sent, total) {
+          if (kDebugMode)
+            debugPrint('[UpdateProfile] Upload progress: $sent/$total');
+        },
+      );
+
+      if (kDebugMode) {
+        debugPrint('[UpdateProfile] API Response received: ${resp.toString()}');
+        debugPrint('[UpdateProfile] Response keys: ${resp.keys.toList()}');
+      }
+
+      if (resp.isEmpty) {
+        throw Exception('Empty response from server');
+      }
+
+      final updatedUser = UserData.fromJson(Map<String, dynamic>.from(resp));
+
+      if (kDebugMode) {
+        debugPrint(
+            '[UpdateProfile] Parsed updatedUser: name=${updatedUser.name}, email=${updatedUser.email}, image=${updatedUser.image}');
+      }
+
+      Fluttertoast.showToast(msg: 'Profile updated successfully');
+
+      try {
+        final Map<String, dynamic> _summary = {
+          'profile': updatedUser.toJson(),
+          'wallet': <String, dynamic>{},
+          'fetched_at': DateTime.now().toIso8601String(),
+        };
+        await MySharedPreferences().setCacheJson('user_summary', _summary);
+            final updatedUser = UserData.fromJson(Map<String, dynamic>.from(resp));
+
+            if (kDebugMode) {
+              debugPrint(
+                  '[UpdateProfile] Parsed updatedUser: name=${updatedUser.name}, email=${updatedUser.email}, image=${updatedUser.image}');
+            }
+
+            if (!mounted) return;
+      
+            // Show success message using SnackBar instead of Fluttertoast to avoid toast errors
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile updated successfully'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+        }
+      }
+
+      if (emailChanged) {
+        if (!mounted) return;
+        final verified = await Navigator.push<bool?>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EmailVerificationScreen(
+              email: email,
+              redirectToLogin: false,
+            ),
+          ),
+        );
+
+        if (verified == true) {
+          final profileDetail = await ApiProvider().getProfile();
+          final freshUser = profileDetail.data ?? updatedUser;
+          Fluttertoast.showToast(msg: 'Email verified and profile updated');
+          try {
+            final Map<String, dynamic> _summary = {
+              'profile': freshUser.toJson(),
+              'wallet': <String, dynamic>{},
+              'fetched_at': DateTime.now().toIso8601String(),
+            };
+            await MySharedPreferences().setCacheJson('user_summary', _summary);
+            UserSummaryNotifier.update(_summary);
+          } catch (_) {}
+          if (!mounted) return;
+          Navigator.pop(context, freshUser);
+        } else {
+          if (!mounted) return;
+          Dialogs.showDialogWithTwoButtons(
+            context,
+            'Email Not Verified',
+            'Your new email is not verified. Verify now or continue without verifying.',
+            button1Label: 'Verify Now',
+            onButton1Press: () {
+              Navigator.pop(context);
+              Future.microtask(() async {
+                final retry = await Navigator.push<bool?>(
+                  context,
+                  MaterialPageRoute(
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Email verified and profile updated'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+                      email: email,
+                      redirectToLogin: false,
+                    ),
+                  ),
+                );
+                if (retry == true) {
+                  final profileDetail = await ApiProvider().getProfile();
+                  final freshUser = profileDetail.data ?? updatedUser;
+                  Fluttertoast.showToast(
+                      msg: 'Email verified and profile updated');
+                  try {
+                    final Map<String, dynamic> _summary = {
+                      'profile': freshUser.toJson(),
+                      'wallet': <String, dynamic>{},
+                      'fetched_at': DateTime.now().toIso8601String(),
+                    };
+                    await MySharedPreferences()
+                        .setCacheJson('user_summary', _summary);
+                    UserSummaryNotifier.update(_summary);
+                  } catch (_) {}
+                  if (!mounted) return;
+                  Navigator.pop(context, freshUser);
+                }
+              });
+            },
+            button2Label: 'Continue',
+            onButton2Press: () {
+              Navigator.pop(context);
+              Navigator.pop(context, updatedUser);
+            },
+          );
+        }
+      } else {
+        Navigator.pop(context, updatedUser);
+      }
+    } on DioException catch (e) {
+      String msg = 'Failed to update profile';
+
+      // Handle 401 Unauthenticated specifically
+      if (e.response?.statusCode == 401) {
+        if (kDebugMode) {
+          debugPrint('[UpdateProfile] Got 401 Unauthenticated response');
+          debugPrint('[UpdateProfile] Response: ${e.response?.data}');
+        }
+        msg = 'Authentication failed. Please log in again.';
+      } else if (e.response != null && e.response?.statusCode == 422) {
+        final data = e.response?.data;
+        if (data is Map && data['errors'] != null) {
+          final errors = data['errors'] as Map;
+          final first = errors.entries.first;
+          msg = first.value is List
+              ? first.value.first.toString()
+              : first.value.toString();
+        } else if (data is Map && data['message'] != null) {
+          msg = data['message'].toString();
+        }
+      } else if (e.message != null) {
+        msg = e.message ?? msg;
+      }
+
+      if (kDebugMode) {
+        debugPrint(
+            '[UpdateProfile] DioException: statusCode=${e.response?.statusCode}, msg=$msg');
+      }
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(msg),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+    } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Network error: ${e.toString()}'),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+    } finally {
+      if (mounted) setState(() => isProcessing = false);
+    }
+  }
+}

@@ -1,0 +1,1052 @@
+import 'dart:async';
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fantasyleague/api/api_provider.dart';
+import 'package:fantasyleague/utils/theme/app_theme.dart';
+import 'dart:math' as math;
+import 'package:fantasyleague/utils/notification_service.dart';
+// import 'dart:ui';
+
+class Player {
+  final String name;
+  final bool playing11;
+  final String team;
+  Player({required this.name, required this.playing11, required this.team});
+}
+
+class CreateTeamScreen extends StatefulWidget {
+  const CreateTeamScreen({super.key});
+
+  @override
+  _CreateTeamScreenState createState() => _CreateTeamScreenState();
+}
+
+class _CreateTeamScreenState extends State<CreateTeamScreen> {
+  List<Map<String, dynamic>> allPlayerList = [];
+  List<Map<String, dynamic>> playing11 = [];
+  List playersData = [];
+  List playersPlayingData = [];
+  bool isDataLoading = true;
+  String team1ImageUrl = '';
+  String team2ImageUrl = '';
+  int wkCount = 0;
+  int batCount = 0;
+  int bowlCount = 0;
+  int arCount = 0;
+  String country1Flag = '';
+  String country2Flag = '';
+  String country1Name = '';
+  String country2Name = '';
+  String time = '';
+  Set<Map<String, dynamic>> selectedPlayers = <Map<String, dynamic>>{};
+  Map<String, bool> playerPlayingStatus = {};
+  List playersTeamOne = [];
+  List playersTeamTwo = [];
+  List playersIsPlayingOrNot = [];
+
+  // Number of players required to form a team for this match/tournament.
+  // Defaults to 11 if the backend doesn't provide a value.
+  int requiredPlayers = 11;
+  @override
+  void initState() {
+    super.initState();
+    fetchData();
+  }
+
+  Future<void> fetchData() async {
+    Timer? fetchDataTimer;
+    try {
+      // Add 15s timeout for fetching team data to prevent spinner hang
+      fetchDataTimer = Timer(const Duration(seconds: 15), () {
+        if (!mounted || !isDataLoading) return;
+        setState(() => isDataLoading = false);
+        debugPrint('Error: Fetching team data timed out after 15 seconds');
+      });
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? cid = prefs.getString('cid');
+      String? matchId = prefs.getString('matchId');
+      country1Flag = prefs.getString('country1Flag') ?? '';
+      country1Name = prefs.getString('country1Name')?.toUpperCase() ?? '';
+      country2Flag = prefs.getString('country2Flag') ?? '';
+      country2Name = prefs.getString('country2Name')?.toUpperCase() ?? '';
+      time = prefs.getString('time') ?? '';
+      if (cid != null && matchId != null) {
+        try {
+          final List<Map<String, dynamic>> players =
+              await getPlayers(cid, matchId);
+          final response = await getMatchDetails(matchId);
+          setState(() {
+            allPlayerList = players;
+            isDataLoading = false;
+            if (response != null) {
+              team1ImageUrl = response['squad'][0]['team']['logo_url'] ?? '';
+              team2ImageUrl = response['squad'][1]['team']['logo_url'] ?? '';
+            }
+            wkCount = players
+                .where((player) =>
+                    (player['playing_role'] ?? '').toLowerCase() == "wk")
+                .length;
+            batCount = players
+                .where((player) =>
+                    (player['playing_role'] ?? '').toLowerCase() == "bat")
+                .length;
+            arCount = players
+                .where((player) =>
+                    (player['playing_role'] ?? '').toLowerCase() == "all")
+                .length;
+            bowlCount = players
+                .where((player) =>
+                    (player['playing_role'] ?? '').toLowerCase() == "bowl")
+                .length;
+          });
+          final playing11Response = await getPlaying11(matchId);
+          if (playing11Response != null) {
+            setState(() {
+              playing11 = playing11Response;
+              playersIsPlayingOrNot = playing11Response;
+            });
+          }
+
+          // Update requiredPlayers from match/tournament data if available
+          if (response != null) {
+            final rp =
+                response['required_players'] ?? response['requiredPlayers'];
+            if (rp != null) {
+              setState(() {
+                requiredPlayers = (rp is int)
+                    ? rp
+                    : int.tryParse(rp.toString()) ?? requiredPlayers;
+                // Trim selected players if server lowered required players
+                if (selectedPlayers.length > requiredPlayers) {
+                  final trimmed =
+                      selectedPlayers.toList().take(requiredPlayers).toList();
+                  selectedPlayers = trimmed.toSet();
+                }
+              });
+            }
+          }
+
+          checkIfPlayersAndPlayingState();
+        } on DioException catch (_) {
+          // Error fetching data (DioException 1)
+        } catch (_) {
+          // Error fetching data: 2
+        }
+      }
+    } on DioException catch (_) {
+      // Error fetching data (DioException 3)
+    } catch (e) {
+      // Error fetching data 4
+    } finally {
+      fetchDataTimer?.cancel();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getPlayers(
+      String cid, String matchId) async {
+    // Use backend API via ApiProvider
+    try {
+      final players = await ApiProvider().getPlayers(cid, matchId);
+      // set playersTeamOne/Two if backend provides squad structure in match details
+      final match = await ApiProvider().getMatchDetails(matchId);
+      if (match != null && match['squad'] != null && match['squad'] is List) {
+        final squads = List.from(match['squad']);
+        if (squads.isNotEmpty) {
+          playersTeamOne = List.from(squads[0]['players'] ?? []);
+        }
+        if (squads.length > 1) {
+          playersTeamTwo = List.from(squads[1]['players'] ?? []);
+        }
+      }
+      return players;
+    } catch (e) {
+      // Error fetching players via backend
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getMatchDetails(String matchId) async {
+    try {
+      return await ApiProvider().getMatchDetails(matchId);
+    } catch (e) {
+      // Error fetching match details via backend
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>?> getPlaying11(String matchId) async {
+    try {
+      return await ApiProvider().getPlaying11(matchId);
+    } catch (e) {
+      // Error fetching playing11 via backend
+      return null;
+    }
+  }
+
+  void checkIfPlayersAndPlayingState() {
+    for (var i = 0; i < playersTeamOne.length; i++) {
+      var playerTeamOne = playersTeamOne[i];
+      var pidTeamOne = playerTeamOne['pid'];
+      var isPlayingTeamOne = playersIsPlayingOrNot.any((playingPlayer) =>
+          playingPlayer['player_id'] == pidTeamOne.toString() &&
+          playingPlayer['playing11'] == 'true');
+      playerTeamOne['isPlaying'] = isPlayingTeamOne;
+    }
+    for (var i = 0; i < playersTeamTwo.length; i++) {
+      var playerTeamTwo = playersTeamTwo[i];
+      var pidTeamTwo = playerTeamTwo['pid'];
+      var isPlayingTeamTwo = playersIsPlayingOrNot.any((playingPlayer) =>
+          playingPlayer['player_id'] == pidTeamTwo.toString() &&
+          playingPlayer['playing11'] == 'true');
+      playerTeamTwo['isPlaying'] = isPlayingTeamTwo;
+    }
+  }
+
+  Widget _buildPlayerAvatar(Map<String, dynamic> player) {
+    final logoUrl = player['logo_url'] as String?;
+    const defaultImage = AssetImage('assets/playerImage.png');
+    final imageUrl = logoUrl ?? '';
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlayerDetailsScreen(player: player),
+          ),
+        );
+      },
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: Colors.transparent,
+            child: imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    errorBuilder: (BuildContext context, Object error,
+                        StackTrace? stackTrace) {
+                      return const Image(image: defaultImage);
+                    },
+                  )
+                : const Image(image: defaultImage),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            player['isPlaying'] == true ? "Playing" : "Not Playing",
+            style: TextStyle(
+              color: player['isPlaying'] == true ? Colors.green : Colors.red,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget playerListView(String role, String header) {
+    List<Map<String, dynamic>> filteredPlayers = allPlayerList.where((player) {
+      return (player['playing_role'] ?? '').toLowerCase() == role.toLowerCase();
+    }).toList();
+    return filteredPlayers.isEmpty
+        ? Center(
+            child: Text("No $role players available."),
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Card(
+                color: Colors.grey[300],
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Center(
+                    child: Text(
+                      header,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('Player')),
+                      DataColumn(label: Text('Points')),
+                      DataColumn(label: Text('Credits')),
+                      DataColumn(label: Text('Select')),
+                    ],
+                    dataRowMinHeight: 80,
+                    dataRowMaxHeight: 80,
+                    columnSpacing: 10,
+                    rows: filteredPlayers.map((player) {
+                      final fantasyPlayerRating =
+                          player['fantasy_player_rating'];
+                      final isPlayerSelected = selectedPlayers.contains(player);
+                      return DataRow(
+                        selected: isPlayerSelected,
+                        cells: [
+                          DataCell(
+                            Row(
+                              children: [
+                                _buildPlayerAvatar(player),
+                                const SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    player['short_name'] ?? '',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color:
+                                          playerPlayingStatus[player['pid']] ==
+                                                  true
+                                              ? Colors.green
+                                              : Colors.red,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const DataCell(Text("0.0")),
+                          DataCell(Text("$fantasyPlayerRating")),
+                          DataCell(
+                            IconButton(
+                              icon: Icon(
+                                  isPlayerSelected ? Icons.remove : Icons.add),
+                              color: playerPlayingStatus[player['pid']] == true
+                                  ? Colors.green
+                                  : Colors.red,
+                              onPressed: () {
+                                togglePlayerSelection(player);
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          );
+  }
+
+  Future<bool> getPlayingStatus(Map<String, dynamic> player) async {
+    final String playerName = player['pid'].toString();
+    final bool isPlayerDataAvailable =
+        playersData.any((data) => data['pid'] == playerName);
+    if (!isPlayerDataAvailable) {
+      return false;
+    }
+    final bool isInPlaying11 = playersPlayingData
+        .any((playingPlayer) => playingPlayer['player_id'] == playerName);
+    return isInPlaying11;
+  }
+
+  void togglePlayerSelection(Map<String, dynamic> player) {
+    setState(() {
+      if (selectedPlayers.contains(player)) {
+        selectedPlayers.remove(player);
+      } else {
+        // Prevent selecting more than the allowed number of players
+        if (selectedPlayers.length >= requiredPlayers) {
+          AppNotification.showWarning(
+            context,
+            title: 'Player Limit Exceeded',
+            message:
+                'You can select a maximum of $requiredPlayers players. Choose your team wisely.',
+          );
+        } else {
+          if (player['playing_role'] == "wk" &&
+              selectedPlayers.where((p) => p['playing_role'] == "wk").length <
+                  2) {
+            selectedPlayers.add(player);
+          } else if (player['playing_role'] == "bat" &&
+              selectedPlayers.where((p) => p['playing_role'] == "bat").length <
+                  5) {
+            selectedPlayers.add(player);
+          } else if (player['playing_role'] == "all" &&
+              selectedPlayers.where((p) => p['playing_role'] == "all").length <
+                  3) {
+            selectedPlayers.add(player);
+          } else if (player['playing_role'] == "bowl" &&
+              selectedPlayers.where((p) => p['playing_role'] == "bowl").length <
+                  5) {
+            selectedPlayers.add(player);
+          }
+        }
+      }
+    });
+  }
+
+  int selectedPlayerCount = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(country1Name, style: const TextStyle(fontSize: 14)),
+                Text(country2Name, style: const TextStyle(fontSize: 14)),
+                Text(time, style: const TextStyle(fontSize: 12)),
+              ],
+            ),
+            Image.network(
+              country1Flag,
+              height: 40,
+              width: 40,
+            ),
+            Image.network(
+              country2Flag,
+              height: 40,
+              width: 40,
+            ),
+          ],
+        ),
+      ),
+      body: ModalProgressHUD(
+        inAsyncCall: isDataLoading,
+        child: Column(
+          children: [
+            Expanded(
+              child: isDataLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : DefaultTabController(
+                      length: 4,
+                      child: Column(
+                        children: [
+                          TabBar(
+                            labelColor: Colors.black,
+                            unselectedLabelColor: Colors.grey,
+                            tabs: [
+                              Tab(text: "WK"),
+                              Tab(text: "BAT"),
+                              Tab(text: "AR"),
+                              Tab(text: "BOWL"),
+                            ],
+                          ),
+                          Expanded(
+                            child: TabBarView(
+                              children: [
+                                playerListView("wk", "Wicket-keepers (Pick 2)"),
+                                playerListView("bat", "Batsmen (Pick 3-5)"),
+                                playerListView(
+                                    "all", "All-rounders (Pick 1-3)"),
+                                playerListView("bowl", "Bowlers (Pick 3-5)"),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PreviewScreen(
+                          selectedPlayers: selectedPlayers,
+                          requiredPlayers: requiredPlayers,
+                        ),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: 10.0,
+                      horizontal: 20.0,
+                    ),
+                    child: Text(
+                      "Preview",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18.0,
+                      ),
+                    ),
+                  ),
+                ),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity:
+                      selectedPlayers.length == requiredPlayers ? 1.0 : 0.5,
+                  child: ElevatedButton(
+                    onPressed: selectedPlayers.length == requiredPlayers
+                        ? () {
+                            // Your code when the "Continue" button is pressed
+                            debugPrint(selectedPlayers.toString());
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SelectCaptainScreen(
+                                  selectedPlayers: selectedPlayers
+                                      .toList(), // Convert Set to List
+                                  requiredPlayers: requiredPlayers,
+                                ),
+                              ),
+                            );
+                          }
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20.0),
+                      ),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: 10.0,
+                        horizontal: 20.0,
+                      ),
+                      child: Text(
+                        "Continue",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Column(
+              children: [
+                Visibility(
+                  visible: selectedPlayers.length != requiredPlayers,
+                  child: Text(
+                    '${selectedPlayers.length} players selected',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: ElevatedButton(
+                    onPressed: selectedPlayers.length == requiredPlayers
+                        ? null
+                        : () {
+                            // Your code when the button is pressed
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20.0),
+                      ),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: 10.0,
+                        horizontal: 20.0,
+                      ),
+                      child: Text(
+                        "Select Captains",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SelectCaptainScreen extends StatelessWidget {
+  final List<Map<String, dynamic>> selectedPlayers;
+  final int requiredPlayers;
+  static const defaultImage = AssetImage('assets/playerImage.png');
+
+  const SelectCaptainScreen(
+      {super.key,
+      required this.selectedPlayers,
+      required this.requiredPlayers});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Select Captain"),
+      ),
+      body: SizedBox(
+        height: MediaQuery.of(context).size.height,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    buildRoleSection('Wicket-keepers'),
+                    buildRoleSection('Batsmen'),
+                    buildRoleSection('All-rounders'),
+                    buildRoleSection('Bowlers'),
+                  ],
+                ),
+              ),
+            ),
+            buildCaptainButtons(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildRoleSection(String roleTitle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        buildRoleTitle(roleTitle),
+        DataTable(
+          columnSpacing: 10.0,
+          columns: const [
+            DataColumn(label: Text('Player')),
+            DataColumn(label: Text('Points')),
+            DataColumn(label: Text('Credits')),
+            DataColumn(label: Text('Actions')),
+          ],
+          rows: selectedPlayers
+              .where((player) =>
+                  player['playing_role'] == getRoleFromTitle(roleTitle))
+              .map((player) {
+            return DataRow(
+              cells: [
+                DataCell(Text(player['short_name'] ?? '')),
+                const DataCell(Text("0.0")),
+                DataCell(Text("?${player['fantasy_player_rating']}")),
+                DataCell(buildActionIconsRow(player)),
+              ],
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget buildRoleTitle(String title) {
+    return Container(
+      padding: const EdgeInsets.all(10.0),
+      margin: const EdgeInsets.symmetric(vertical: 10.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black),
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      child: Center(
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18.0,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildActionIconsRow(Map<String, dynamic> player) {
+    return Row(
+      children: [
+        buildCircularIcon('C'),
+        buildCircularIcon('VC'),
+        buildCircularIcon('UC'),
+        buildCircularIcon('TC'),
+      ],
+    );
+  }
+
+  Widget buildCircularIcon(String label) {
+    return Container(
+      width: 30.0,
+      height: 30.0,
+      margin: const EdgeInsets.only(right: 8.0),
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.blue,
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String getRoleFromTitle(String title) {
+    switch (title) {
+      case 'Wicket-keepers':
+        return 'wk';
+      case 'Batsmen':
+        return 'bat';
+      case 'All-rounders':
+        return 'all';
+      case 'Bowlers':
+        return 'bowl';
+      default:
+        return '';
+    }
+  }
+
+  Widget buildCaptainButtons(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PreviewScreen(
+                    selectedPlayers: selectedPlayers.toSet(),
+                    requiredPlayers: requiredPlayers,
+                  ),
+                ),
+              );
+            },
+            child: const Text("Preview"),
+          ),
+          ElevatedButton(
+            onPressed: selectedPlayers.length == requiredPlayers
+                ? () {
+                    debugPrint("Save Team Button Pressed");
+                  }
+                : null,
+            child: const Text("Save Team"),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PlayerDetailsScreen extends StatelessWidget {
+  final Map<String, dynamic> player;
+
+  const PlayerDetailsScreen({super.key, required this.player});
+
+  @override
+  Widget build(BuildContext context) {
+    final logoUrl = player['logo_url'] as String?;
+    const defaultImage = AssetImage('assets/playerImage.png');
+    final imageUrl = logoUrl ?? '';
+
+    return Theme(
+      data: ThemeData(
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: Colors.red,
+        ),
+      ),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(player['short_name']?.toString() ?? ''),
+        ),
+        body: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.transparent,
+                      child: imageUrl.isNotEmpty
+                          ? Image.network(
+                              imageUrl,
+                              errorBuilder: (BuildContext context, Object error,
+                                  StackTrace? stackTrace) {
+                                return const Image(image: defaultImage);
+                              },
+                            )
+                          : const Image(image: defaultImage),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      player['title']?.toString() ??
+                          player['short_name']?.toString() ??
+                          'Player',
+                      style: const TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      _buildPlayerDetailTile(
+                          'Birthdate:', player['birthdate'].toString()),
+                      _buildPlayerDetailTile(
+                          'Batting Style:', player['batting_style']),
+                      _buildPlayerDetailTile(
+                          'Bowling Style:', player['bowling_style']),
+                      _buildPlayerDetailTile(
+                          'Fielding Position:', player['fielding_position']),
+                      _buildPlayerDetailTile(
+                          'Recent Match:', player['recent_match']),
+                      _buildPlayerDetailTile(
+                          'Recent Appearance:', player['recent_appearance']),
+                      _buildPlayerDetailTile('Fantasy Player Rating:',
+                          player['fantasy_player_rating'].toString()),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayerDetailTile(String label, dynamic value) {
+    // Check if value is not null and is of type String
+    final displayValue = (value != null && value is String) ? value : 'N/A';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 8),
+          Text(displayValue),
+        ],
+      ),
+    );
+  }
+}
+
+class PreviewScreen extends StatelessWidget {
+  final Set<Map<String, dynamic>> selectedPlayers;
+  final int requiredPlayers;
+  static const AssetImage defaultImage = AssetImage('assets/playerImage.png');
+  final double playgroundRadius = 180.0;
+  late final double angleIncrement;
+
+  PreviewScreen(
+      {super.key,
+      required this.selectedPlayers,
+      required this.requiredPlayers}) {
+    angleIncrement = 2 * math.pi / (requiredPlayers > 0 ? requiredPlayers : 11);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final MediaQueryData mediaQueryData = MediaQuery.of(context);
+    final double screenWidth = mediaQueryData.size.width;
+    final double screenHeight = mediaQueryData.size.height;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Selected Players"),
+      ),
+      body: Stack(
+        children: [
+          Image.asset(
+            'assets/gameGround.png',
+            fit: BoxFit.cover,
+            height: double.infinity,
+            width: double.infinity,
+          ),
+          _buildPlayerGroup(
+            selectedPlayers,
+            'wk',
+            screenWidth,
+            screenHeight,
+            angleIncrement,
+          ),
+          _buildPlayerGroup(
+            selectedPlayers,
+            'bat',
+            screenWidth,
+            screenHeight,
+            angleIncrement,
+          ),
+          _buildPlayerGroup(
+            selectedPlayers,
+            'all',
+            screenWidth,
+            screenHeight,
+            angleIncrement,
+          ),
+          _buildPlayerGroup(
+            selectedPlayers,
+            'bowl',
+            screenWidth,
+            screenHeight,
+            angleIncrement,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayerGroup(
+    Set<Map<String, dynamic>> players,
+    String playingRole,
+    double screenWidth,
+    double screenHeight,
+    double angleIncrement,
+  ) {
+    List<Map<String, dynamic>> playersInGroup = players
+        .where((player) =>
+            (player['playing_role'] ?? '').toLowerCase() == playingRole)
+        .toList();
+
+    double radius =
+        screenHeight < screenWidth ? screenHeight * 0.25 : screenWidth * 0.25;
+
+    double top;
+
+    switch (playingRole.toLowerCase()) {
+      case 'wk':
+        top = screenHeight * 0.25 - radius;
+        break;
+      case 'bat':
+        top = screenHeight * 0.35 - radius;
+        break;
+      case 'bowl':
+        top = screenHeight * 0.65 - radius;
+        break;
+      case 'all':
+        top = screenHeight * 0.75 - radius;
+        break;
+      default:
+        // Handle other playing roles if needed
+        top = screenHeight * 0.5 - radius;
+    }
+
+    double totalWidth =
+        playersInGroup.length * 40.0; // Adjust the width as needed
+
+    double left = screenWidth * 0.44 - totalWidth / 2;
+
+    return Positioned(
+      top: top,
+      left: left,
+      child: Column(
+        children: [
+          Text(
+            getPlayingRoleTitle(
+                playingRole), // Define getPlayingRoleTitle function
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (int i = 0; i < playersInGroup.length; i++)
+                Row(
+                  children: [
+                    _buildPlayerMarker(
+                      playersInGroup.elementAt(i),
+                      i,
+                      angleIncrement * i,
+                      screenWidth,
+                      screenHeight,
+                    ),
+                    const SizedBox(
+                        width: 8.0), // Adjust the spacing between players
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String getPlayingRoleTitle(String playingRole) {
+    switch (playingRole.toLowerCase()) {
+      case 'wk':
+        return 'Wicket Keepers';
+      case 'bat':
+        return 'Batsman';
+      case 'bowl':
+        return 'Bowlers';
+      case 'all':
+        return 'All-rounders';
+      default:
+        return 'Other Players';
+    }
+  }
+
+  Widget _buildPlayerMarker(
+    Map<String, dynamic> player,
+    int index,
+    double angle,
+    double screenWidth,
+    double screenHeight,
+  ) {
+    double radius =
+        screenHeight < screenWidth ? screenHeight * 0.4 : screenWidth * 0.4;
+    double top = radius * math.sin(angle) + screenHeight * 0.5;
+    double left = radius * math.cos(angle) + screenWidth * 0.5;
+
+    return Positioned(
+      top: top,
+      left: left,
+      child: Column(
+        children: [
+          Image.network(
+            player['logo_url'] ?? '',
+            height: 30,
+            width: 30,
+            errorBuilder:
+                (BuildContext context, Object error, StackTrace? stackTrace) {
+              return const Image(image: defaultImage, height: 30, width: 30);
+            },
+          ),
+          const SizedBox(height: 4),
+          Text(player['short_name'] ?? ''),
+        ],
+      ),
+    );
+  }
+}
